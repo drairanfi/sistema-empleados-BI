@@ -32,6 +32,13 @@ def _is_number(value):
         return False
 
 
+def normalize_doc_number(value):
+    # Excel stores numeric documents as floats (1076669247.0)
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value).strip()
+
+
 def validate_file_path(path):
     file = Path(path)
     if not file.exists():
@@ -84,9 +91,12 @@ def validate_row(row_number, row):
 
 
 def validate_excel(path):
-    """Validates the file and returns its data rows (without header).
+    """Checks the file structure and returns its data rows as (row_number, row).
 
-    Raises ExcelValidationError with every problem found.
+    Raises ExcelValidationError only for problems that prevent reading the file
+    (missing file, wrong extension, empty sheet, bad header). Content problems
+    such as invalid rows, repeated documents or notified types are handled by
+    the reader, which skips them and reports warnings.
     """
     validate_file_path(path)
 
@@ -100,7 +110,7 @@ def validate_excel(path):
     finally:
         workbook.close()
 
-    # Keep the real Excel row number so error messages match what the user sees
+    # Keep the real Excel row number so messages match what the user sees
     rows = [(n, r) for n, r in enumerate(rows, start=1) if not all(_is_blank(v) for v in r)]
     if not rows:
         raise ExcelValidationError(["La hoja no tiene datos."])
@@ -112,12 +122,4 @@ def validate_excel(path):
     if not data:
         raise ExcelValidationError(["El archivo solo tiene encabezados, sin empleados."])
 
-    for index, row in data:
-        extra = [v for v in row[len(EXPECTED_COLUMNS):] if not _is_blank(v)]
-        if extra:
-            errors.append(f"Fila {index}: tiene datos fuera de las columnas esperadas.")
-        errors.extend(validate_row(index, row))
-
-    if errors:
-        raise ExcelValidationError(errors)
-    return [row for _, row in data]
+    return data

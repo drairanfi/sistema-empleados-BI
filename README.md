@@ -41,7 +41,7 @@ python main.py
 ```
 
 1. Presione **Leer archivo Excel** y seleccione el archivo.
-2. Si el archivo es válido, se habilitan las demás opciones.
+2. Si la estructura es válida, se cargan los empleados y se habilitan las demás opciones. Si hay filas inválidas, repetidas o de tipo `PAS`, se avisa cuáles se ignoraron.
 3. Los listados se muestran en la tabla; los totales, en un cuadro de diálogo.
 
 ## Formato del archivo Excel
@@ -53,9 +53,21 @@ La primera hoja debe tener exactamente estas tres columnas, con encabezado en la
 | CC      | 1076669247   | 10000  |
 | PAS     | 74320814     | 7000000 |
 
-El archivo `empleados.xlsx` incluido en el proyecto es un ejemplo válido para probar la aplicación.
+El archivo `empleados.xlsx` incluido en el proyecto contiene a propósito un número de documento repetido (72257456, en las filas 6 y 7) y una fila con tipo `PAS` (fila 4), por lo que sirve para probar el filtrado.
 
 ### Validaciones
+
+El Excel **puede contener filas inválidas**: el archivo se carga igual y las filas que no se pueden usar se **ignoran** y se avisan en un cuadro de diálogo. Una fila se ignora cuando:
+
+| Motivo | Ejemplo de mensaje |
+|---|---|
+| TIPODOC vacío o no permitido | `Fila 3: TIPODOC 'XX' no es válido.` |
+| NRODOCUMENTO vacío o no alfanumérico | `Fila 4: NRODOCUMENTO está vacío.` |
+| SUELDO vacío, no numérico o negativo | `Fila 5: SUELDO 'abc' no es numérico.` |
+| NRODOCUMENTO repetido (se conserva la primera aparición) | `Fila 7: NRODOCUMENTO 72257456 repetido (fila 6); ignorado.` |
+| TIPODOC a notificar (ej. `PAS`) | `Fila 4: TIPODOC 'PAS' ignorado.` |
+
+En cambio, estos problemas **bloquean la carga** porque impiden leer el archivo:
 
 | Validación | Ejemplo de mensaje |
 |---|---|
@@ -66,21 +78,17 @@ El archivo `empleados.xlsx` incluido en el proyecto es un ejemplo válido para p
 | Hay empleados además del encabezado | `El archivo solo tiene encabezados, sin empleados.` |
 | Número de columnas | `Se esperaban 3 columnas y se encontraron 2.` |
 | Nombres de columnas | `Encabezados no válidos [...]` |
-| TIPODOC no vacío y permitido | `Fila 3: TIPODOC 'XX' no es válido.` |
-| NRODOCUMENTO no vacío y alfanumérico | `Fila 4: NRODOCUMENTO está vacío.` |
-| SUELDO numérico y no negativo | `Fila 5: SUELDO 'abc' no es numérico.` |
-| Sin datos fuera de las 3 columnas | `Fila 6: tiene datos fuera de las columnas esperadas.` |
 
-Se reportan todos los errores a la vez, con el número de fila real de Excel. Las filas completamente vacías se ignoran.
+Los mensajes usan el número de fila real de Excel. Las filas completamente vacías se ignoran sin aviso.
 
-Los tipos de documento permitidos (`CC`, `CE`, `PAS`, `TI`, `NIT`) se configuran en `config.py`.
+Los tipos de documento permitidos (`CC`, `CE`, `PAS`, `TI`, `NIT`) se configuran en `config.py`. El número de documento se compara normalizado: un número repetido, aunque tenga distinto tipo, se ignora (se conserva la primera aparición). Los tipos listados en `NOTIFY_DOC_TYPES` (por defecto `PAS`) también se ignoran y se avisan.
 
 ## Opciones del menú
 
 | Botón | Función en `employee_service.py` | Comportamiento |
 |---|---|---|
 | Mostrar empleados | `list_employees` | Lista todos los empleados |
-| Buscar empleado | `search_employee` | Busca por número de documento; muestra todas las coincidencias (un número puede repetirse con distinto tipo de documento) |
+| Buscar empleado | `search_employee` | Busca por número de documento; muestra todas las coincidencias |
 | Total de sueldos | `total_salaries` | Suma de todos los sueldos |
 | Sueldo promedio | `average_salary` | Promedio de sueldos |
 | Empleado con mayor sueldo | `highest_paid_employees` | Muestra el o los empleados con el sueldo más alto (incluye empates) |
@@ -96,8 +104,8 @@ sistema_empleados/
 ├── main.py              # Punto de entrada
 ├── gui.py               # Interfaz Tkinter (solo presentación y entrada del usuario)
 ├── employee_service.py  # Lógica de negocio: una función por opción del menú
-├── excel_reader.py      # Convierte las filas validadas en objetos Employee
-├── excel_validator.py   # Validación del archivo y su contenido
+├── excel_reader.py      # Convierte las filas válidas en Employee y descarta las problemáticas
+├── excel_validator.py   # Validación de la estructura del archivo (bloqueante)
 ├── employee.py          # Modelo de datos Employee
 ├── config.py            # Constantes (columnas, tipos de documento, extensiones)
 └── requirements.txt
@@ -110,4 +118,4 @@ main → gui → excel_reader → excel_validator → config
          └─→ employee_service        └─→ employee
 ```
 
-La lógica (`employee_service`, `excel_validator`) no depende de Tkinter, por lo que puede reutilizarse desde consola, pruebas o una aplicación web reemplazando solo `gui.py`.
+La lógica (`employee_service`, `excel_reader`, `excel_validator`) no depende de Tkinter, por lo que puede reutilizarse desde consola, pruebas o una aplicación web reemplazando solo `gui.py`. `read_employees` devuelve `(employees, warnings)`.

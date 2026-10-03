@@ -6,7 +6,7 @@ def list_employees(employees):
 
 
 def search_employee(employees, doc_number, doc_type=None):
-    """Returns every match: the same number can exist under different doc types."""
+    """Returns every match for the given document number (and type, if provided)."""
     doc_number = str(doc_number).strip()
     return [
         e

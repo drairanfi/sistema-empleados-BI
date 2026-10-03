@@ -70,6 +70,13 @@ class EmployeeApp(tk.Tk):
 
     # ---------- helpers ----------
 
+    def show_warnings(self, warnings):
+        shown = warnings[:15]
+        message = "\n".join(shown)
+        if len(warnings) > len(shown):
+            message += f"\n... y {len(warnings) - len(shown)} más."
+        messagebox.showwarning("Filas ignoradas", message)
+
     def show_table(self, employees, message):
         self.table.delete(*self.table.get_children())
         for e in employees:
@@ -96,9 +103,17 @@ class EmployeeApp(tk.Tk):
         if not path:
             return
         try:
-            self.employees = read_employees(path)
+            employees, warnings = read_employees(path)
         except ExcelValidationError as exc:
             messagebox.showerror("Archivo inválido", "\n".join(exc.errors[:15]))
+            return
+
+        if warnings:
+            self.show_warnings(warnings)
+
+        self.employees = employees
+        if not employees:
+            self.status.config(text="No se cargó ningún empleado válido.")
             return
 
         for button in self.data_buttons:
